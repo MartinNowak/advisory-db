@@ -1,0 +1,32 @@
+```toml
+[advisory]
+id = "RUSTSEC-0000-0000"
+package = "pam-bindings"
+date = "2026-04-08"
+url = "https://github.com/anowell/pam-rs/issues/16"
+references = ["https://github.com/Uberspace/pam_isolate#5", "https://github.com/ChocolateLoverRaj/pam-any/issues/12#issuecomment-2720196322", "https://github.com/search?q=pam_try%21%28pamh.get_user+language%3ARust&ref=opensearch&type=code"]
+categories = ["privilege-escalation"]
+keywords = ["pam"]
+
+[affected.functions]
+"pam::module::PamHandle::get_user" = [">= 0.0.0"]
+
+[versions]
+patched = []
+```
+
+# PAM get_user can return PAM_SUCCESS and bypass authentication in release builds
+
+This line here:
+
+pam-rs/pam/src/module.rs
+
+Line 195 in 3d9318b
+
+ let res = unsafe { pam_get_user(self, &ptr, c_prompt) }; 
+
+is unsound. It passes an immutable reference to a Rust variable to the function, which then tries to mutate it. In my project, this works fine in debug mode, but fails in release mode.
+
+Particularly with idiomatic usage `pam_try!(pamh.get_user(None))` this silently returns PAM_SUCCESS in *release* builds typically bypassing any authentication.
+
+Even though the crate seems unmaintained, it seems to remain one of the most widely used PAM module bindings. The above mentioned bug can be found in numerous PAM module repos.
